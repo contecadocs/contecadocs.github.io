@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ConTecAd — Portal del Técnico</title>
+<style>
+:root{
+  --accent:#2563eb;--green:#16a34a;--red:#dc2626;--warn:#d97706;
+  --bg:#f8fafc;--card:#ffffff;--border:#e2e8f0;--border2:#f1f5f9;
+  --text:#0f172a;--muted:#64748b;--mono:'Consolas','Courier New',monospace;
+  --radius:12px;--shadow:0 2px 8px rgba(0,0,0,.1);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+.hdr{background:#1e3a5f;color:#fff;padding:14px 20px;display:flex;align-items:center;gap:12px;}
+.hdr h1{font-size:18px;font-weight:700;}
+.hdr p{font-size:12px;opacity:.7;margin-top:2px;}
+.main{max-width:680px;margin:0 auto;padding:24px 16px;}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow);margin-bottom:16px;}
+label{display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;margin-top:14px;}
+label:first-child{margin-top:0;}
+input,select,textarea{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:8px;font-size:15px;background:var(--card);color:var(--text);font-family:inherit;transition:border .15s;}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);}
+textarea{resize:vertical;min-height:90px;}
+.btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:12px 20px;border-radius:8px;border:1.5px solid var(--border);font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;font-family:inherit;width:100%;margin-top:10px;text-align:center;}
+.bprimary{background:var(--accent);color:#fff;border-color:var(--accent);}
+.bsuccess{background:var(--green);color:#fff;border-color:var(--green);}
+.bgray{background:var(--bg);color:var(--text);}
+.bdanger{background:var(--red);color:#fff;border-color:var(--red);}
+.bwarn{background:#d97706;color:#fff;border-color:#d97706;}
+.badge{display:inline-block;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600;}
+.b-abierto{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;}
+.b-progreso{background:#fffbeb;color:#92400e;border:1px solid #fcd34d;}
+.b-cerrado{background:#f0fdf4;color:#15803d;border:1px solid #86efac;}
+.b-alta{background:#fef2f2;color:#b91c1c;border:1px solid #fca5a5;}
+.b-media{background:#fffbeb;color:#92400e;border:1px solid #fcd34d;}
+.b-baja{background:#f0fdf4;color:#15803d;border:1px solid #86efac;}
+/* PIN */
+.pin-wrap{display:flex;flex-direction:column;align-items:center;gap:16px;margin:20px 0;}
+.pin-input{font-size:32px;font-weight:700;letter-spacing:12px;text-align:center;width:200px;font-family:var(--mono);border:2px solid var(--border);border-radius:10px;padding:14px 10px;}
+.pin-input:focus{border-color:var(--accent);}
+/* Ticket cards */
+.tkt-card{border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px;background:var(--card);cursor:pointer;transition:border .15s;}
+.tkt-card:hover{border-color:var(--accent);}
+.tkt-card.alta{border-left:4px solid var(--red);}
+.tkt-card.media{border-left:4px solid var(--warn);}
+.tkt-card.baja{border-left:4px solid var(--green);}
+.field-group{background:var(--bg);border-radius:8px;padding:12px;margin-bottom:10px;font-size:13px;}
+.field-group strong{font-size:10px;text-transform:uppercase;color:var(--muted);letter-spacing:.4px;display:block;margin-bottom:3px;}
+.alert{padding:12px 16px;border-radius:8px;font-size:13px;font-weight:500;margin-top:12px;}
+.asuccess{background:#f0fdf4;color:#15803d;border:1px solid #86efac;}
+.aerror{background:#fef2f2;color:#b91c1c;border:1px solid #fca5a5;}
+.photo-grid{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+.photo-thumb{width:80px;height:80px;object-fit:cover;border-radius:7px;border:1px solid var(--border);}
+#canvas-firma{border:1.5px solid var(--border);border-radius:8px;background:#fff;cursor:crosshair;touch-action:none;display:block;width:100%;}
+.sep{height:1px;background:var(--border2);margin:18px 0;}
+.back-btn{color:var(--accent);background:none;border:none;font-size:14px;cursor:pointer;padding:0;font-family:inherit;display:flex;align-items:center;gap:5px;margin-bottom:16px;font-weight:500;}
+.screen{display:none;}.screen.active{display:block;}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div style="flex:1;">
+    <h1>👷 Portal del Técnico</h1>
+    <p id="hdr-sub">ConTecAd HelpDesk</p>
+  </div>
+  <button id="btn-salir" onclick="salir()" style="display:none;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;padding:7px 16px;border-radius:7px;cursor:pointer;font-size:13px;font-weight:600;">Salir</button>
+</div>
+
+<div class="main">
+
+  <!-- LOGIN -->
+  <div id="screen-login" class="screen active">
+    <div class="card" style="max-width:340px;margin:0 auto;text-align:center;">
+      <div style="font-size:52px;margin-bottom:8px;">🔐</div>
+      <h2 style="font-size:19px;margin-bottom:6px;">Ingresa tu PIN</h2>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:4px;">Accede a los tickets asignados a ti</p>
+      <div class="pin-wrap">
+        <input class="pin-input" type="tel" maxlength="4"
+          id="pin-input" placeholder="••••" autocomplete="off"
+          onkeydown="if(event.key==='Enter')verificarPin()">
+        <button class="btn bprimary" onclick="verificarPin()" style="width:200px;margin-top:0;">
+          Entrar →
+        </button>
+      </div>
+      <div id="pin-error" style="color:var(--red);font-size:13px;min-height:18px;"></div>
+      <p style="font-size:11px;color:var(--muted);margin-top:14px;">¿Olvidaste tu PIN? Contacta al administrador.</p>
+    </div>
+  </div>
+
+  <!-- MIS TICKETS -->
+  <div id="screen-tickets" class="screen">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+      <div>
+        <div style="font-size:18px;font-weight:700;" id="portal-nombre-tec">Mis Tickets</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px;" id="portal-count"></div>
+      </div>
+      <select id="portal-filtro" onchange="renderMisTickets()" style="font-size:13px;padding:7px 12px;width:auto;border-radius:8px;">
+        <option value="">Todos</option>
+        <option value="Abierto">🔵 Abiertos</option>
+        <option value="En Progreso">🟡 En Progreso</option>
+        <option value="Cerrado">🟢 Cerrados</option>
+      </select>
+    </div>
+    <div id="mis-tickets-lista"></div>
+  </div>
+
+  <!-- DETALLE TICKET -->
+  <div id="screen-ticket" class="screen">
+    <button class="back-btn" id="btn-volver" onclick="volverALista()">← Volver a mis tickets</button>
+    <div id="ticket-detalle"></div>
+  </div>
+
+</div>
+
+<script>
+// ── Storage (comparte datos con helpdesk.html en el mismo dominio) ──
+const DB_KEY  = 'ctcad_hd_tickets_v1';
+const TEC_KEY = 'ctcad_hd_tecnicos_v1';
+function getTickets(){try{return JSON.parse(localStorage.getItem(DB_KEY)||'[]');}catch(e){return[];}}
+function saveTickets(d){localStorage.setItem(DB_KEY,JSON.stringify(d));}
+function getTecnicos(){try{return JSON.parse(localStorage.getItem(TEC_KEY)||'[]');}catch(e){return[];}}
+
+// ── Estado ────────────────────────────────────────────────────
+let tecActual = null;
+
+// ── Helpers ───────────────────────────────────────────────────
+function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function fmtDT(s){if(!s)return'—';const d=new Date(s);return d.toLocaleDateString('es-HN',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+d.toLocaleTimeString('es-HN',{hour:'2-digit',minute:'2-digit'});}
+function duracion(a,b){
+  if(!a||!b)return null;
+  const diff=new Date(b)-new Date(a);
+  const m=Math.floor(diff/60000),h=Math.floor(diff/3600000),d=Math.floor(diff/86400000);
+  if(d>0)return d+'d '+(h%24)+'h '+(m%60)+'m';
+  if(h>0)return h+'h '+(m%60)+'m';
+  return m+'m';
+}
+function mapsUrl(latlon){
+  if(!latlon)return null;
+  const p=latlon.replace(/\s/g,'').split(',');
+  if(p.length!==2)return null;
+  const la=parseFloat(p[0]),lo=parseFloat(p[1]);
+  return isNaN(la)||isNaN(lo)?null:'https://www.google.com/maps?q='+la+','+lo;
+}
+function badge(estado){
+  const m={'Abierto':'b-abierto','En Progreso':'b-progreso','Cerrado':'b-cerrado'};
+  return`<span class="badge ${m[estado]||''}">${estado}</span>`;
+}
+function prioBadge(p){
+  const m={'Alta':'b-alta','Media':'b-media','Baja':'b-baja'};
+  return`<span class="badge ${m[p]||''}">${p}</span>`;
+}
+
+// ── Navegación entre pantallas ────────────────────────────────
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ── PIN Login ─────────────────────────────────────────────────
+
+
+function verificarPin(){
+  const pin = document.getElementById('pin-input').value.trim().replace(/\D/g,'');
+  if(pin.length<4){document.getElementById('pin-error').textContent='Ingresa los 4 dígitos del PIN.';return;}
+  const tec = getTecnicos().find(t=>String(t.pin).trim() === pin);
+  if(tec){
+    tecActual = tec;
+    document.getElementById('pin-error').textContent='';
+    document.getElementById('hdr-sub').textContent='Hola, '+tec.nombre+' 👋';
+    document.getElementById('btn-salir').style.display='';
+    showScreen('screen-tickets');
+    renderMisTickets();
+  } else {
+    document.getElementById('pin-error').textContent='PIN incorrecto. Intenta de nuevo.';
+    document.getElementById('pin-input').value='';
+    document.getElementById('pin-input').focus();
+  }
+}
+
+function salir(){
+  tecActual=null;
+  document.getElementById('pin-input').value='';
+  document.getElementById('pin-error').textContent='';
+  document.getElementById('btn-salir').style.display='none';
+  document.getElementById('hdr-sub').textContent='ConTecAd HelpDesk';
+  showScreen('screen-login');
+}
+
+// ── Mis Tickets ───────────────────────────────────────────────
+function renderMisTickets(){
+  if(!tecActual) return;
+  const filtro=document.getElementById('portal-filtro').value;
+  const db=getTickets().filter(t=>t.tecnico_id===tecActual.id&&(!filtro||t.estado===filtro));
+  document.getElementById('portal-nombre-tec').textContent='Mis Tickets — '+tecActual.nombre;
+  document.getElementById('portal-count').textContent=db.length+' ticket(s)'+(filtro?' · '+filtro:'');
+
+  const cont=document.getElementById('mis-tickets-lista');
+  if(!db.length){
+    cont.innerHTML='<div style="text-align:center;padding:40px 20px;color:var(--muted);font-size:14px;">Sin tickets'+(filtro?' con estado '+filtro:'')+' asignados.</div>';
+    return;
+  }
+  cont.innerHTML='';
+  db.forEach(t=>{
+    const div=document.createElement('div');
+    div.className='tkt-card '+(t.prioridad||'').toLowerCase();
+    div.innerHTML=`
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:5px;">
+            <span style="font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent);">${escH(t.num)}</span>
+            ${badge(t.estado)} ${prioBadge(t.prioridad)}
+          </div>
+          <div style="font-weight:600;font-size:14px;margin-bottom:3px;">${escH(t.estacion_nombre)}</div>
+          <div style="font-size:12px;color:var(--muted);">${escH(t.categoria)} · ${fmtDT(t.fecha_apertura)}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escH((t.descripcion||'').substring(0,70))}${(t.descripcion||'').length>70?'...':''}</div>
+        </div>
+        <div style="font-size:24px;color:var(--muted);flex-shrink:0;">›</div>
+      </div>`;
+    div.addEventListener('click', ()=>{ abrirTicket(t.id); });
+    cont.appendChild(div);
+  });
+}
+
+function volverALista(){
+  if(tecActual){showScreen('screen-tickets');renderMisTickets();}
+  else{showScreen('screen-login');}
+}
+
+// ── Ver / Cerrar Ticket ───────────────────────────────────────
+function abrirTicket(id){
+  const t=getTickets().find(x=>x.id===id);
+  if(!t){alert('Ticket no encontrado.');return;}
+  renderDetalleTicket(t);
+  showScreen('screen-ticket');
+  setTimeout(()=>{initFirma();initFotoPreview();},250);
+}
+
+function renderDetalleTicket(t){
+  const url=mapsUrl(t.estacion_latlon);
+  const esCerrado=t.estado==='Cerrado';
+
+  document.getElementById('ticket-detalle').innerHTML=`
+    <div class="card">
+      <!-- Encabezado -->
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">
+        <span style="font-family:var(--mono);font-weight:700;color:var(--accent);font-size:14px;">${escH(t.num)}</span>
+        ${badge(t.estado)} ${prioBadge(t.prioridad)}
+      </div>
+
+      <!-- Estación -->
+      <div class="field-group">
+        <strong>Estación / Sitio</strong>
+        ${escH(t.estacion_nombre)}${t.estacion_ciudad?', '+escH(t.estacion_ciudad):''}
+        ${t.estacion_dir?`<div style="margin-top:3px;color:var(--muted);">📍 ${escH(t.estacion_dir)}</div>`:''}
+      </div>
+      ${url?`<a href="${url}" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;background:var(--green);color:#fff;padding:13px;border-radius:9px;text-decoration:none;font-weight:700;font-size:15px;margin-bottom:12px;">📍 Abrir Ubicación en Google Maps</a>`:''}
+
+      <!-- Contacto -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="field-group"><strong>Contacto</strong>${escH(t.contacto||'—')}</div>
+        <div class="field-group"><strong>Teléfono</strong>
+          ${t.telefono?`<a href="tel:${t.telefono}" style="color:var(--accent);font-weight:600;">${escH(t.telefono)}</a>`:'—'}
+        </div>
+      </div>
+
+      <!-- Problema -->
+      <div class="field-group"><strong>Descripción del Problema</strong>${escH(t.descripcion)}</div>
+      ${t.tipoCaso?`<div class="field-group"><strong>Tipo de Caso</strong>${escH(t.tipoCaso)}</div>`:''}
+
+      <!-- Fechas -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="field-group"><strong>Apertura</strong>${fmtDT(t.fecha_apertura)}</div>
+        ${t.fecha_cierre?`<div class="field-group"><strong>Cierre</strong>${fmtDT(t.fecha_cierre)}</div>`:'<div></div>'}
+      </div>
+      ${t.fecha_cierre?`<div class="field-group" style="background:#f0fdf4;"><strong>Duración Total</strong><span style="color:var(--green);font-weight:700;">⏱ ${duracion(t.fecha_apertura,t.fecha_cierre)||'—'}</span></div>`:''}
+
+      <div class="sep"></div>
+
+      ${esCerrado ? renderCerrado(t) : renderFormCierre(t)}
+    </div>`;
+}
+
+function renderCerrado(t){
+  return`<div style="text-align:center;background:#f0fdf4;border-radius:10px;padding:24px;">
+    <div style="font-size:48px;">✅</div>
+    <div style="font-weight:700;color:var(--green);font-size:16px;margin-top:8px;">Ticket Cerrado</div>
+    ${t.solucion?`<div style="font-size:13px;color:var(--text);margin-top:10px;text-align:left;background:#fff;border-radius:8px;padding:12px;"><strong>Solución:</strong> ${escH(t.solucion)}</div>`:''}
+    ${t.fotos&&t.fotos.length?`<div class="photo-grid" style="justify-content:center;margin-top:10px;">${t.fotos.map(f=>`<img class="photo-thumb" src="${f}">`).join('')}</div>`:''}
+  </div>`;
+}
+
+function renderFormCierre(t){
+  const isAbierto = t.estado==='Abierto';
+  return`
+    <div style="font-size:16px;font-weight:600;margin-bottom:16px;">
+      ${isAbierto ? '🔧 ¿Ya estás atendiendo este caso?' : '✅ Cerrar Ticket'}
+    </div>
+
+    ${isAbierto?`
+    <button class="btn bwarn" onclick="cambiarEstado(${t.id},'En Progreso')" style="margin-bottom:14px;">
+      ▶ Marcar En Progreso — estoy en camino / atendiendo
+    </button>
+    <div class="sep"></div>
+    <div style="font-size:15px;font-weight:600;margin-bottom:12px;">¿Ya lo resolviste? Cierra el ticket:</div>`:''}
+
+    <label>Solución Aplicada <span style="color:var(--red);">*</span></label>
+    <textarea id="tec-solucion" rows="4" placeholder="Describe detalladamente qué hiciste para resolver el problema..."></textarea>
+
+    <label style="margin-top:16px;">Fotos del trabajo realizado</label>
+    <input type="file" id="tec-fotos" accept="image/*" multiple capture="environment"
+      style="font-size:13px;padding:8px;border:1.5px dashed var(--border);border-radius:8px;background:var(--bg);">
+    <div class="photo-grid" id="fotos-preview"></div>
+
+    <label style="margin-top:16px;">Firma del Cliente</label>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:8px;">Pide al cliente que firme en la pantalla:</p>
+    <canvas id="canvas-firma" height="130"></canvas>
+    <button class="btn bgray" onclick="limpiarFirma()" style="width:auto;padding:7px 18px;margin-top:8px;font-size:13px;">Limpiar firma</button>
+
+    <button class="btn bsuccess" onclick="cerrarTicket(${t.id})" style="margin-top:22px;padding:16px;font-size:16px;">
+      ✅ Cerrar Ticket y Guardar Reporte
+    </button>
+    <div id="tec-alert"></div>`;
+}
+
+function cambiarEstado(id, estado){
+  const db=getTickets();const idx=db.findIndex(t=>t.id===id);if(idx<0)return;
+  db[idx].estado=estado;
+  db[idx].notas.push({fecha:new Date().toISOString(),texto:'Estado → '+estado+' ('+( tecActual?tecActual.nombre:'Técnico')+')',tipo:'estado'});
+  saveTickets(db);
+  // Re-render con el ticket actualizado
+  renderDetalleTicket(db[idx]);
+  setTimeout(()=>{initFirma();initFotoPreview();},250);
+}
+
+function cerrarTicket(id){
+  const sol=(document.getElementById('tec-solucion')?.value||'').trim();
+  if(!sol){
+    document.getElementById('tec-alert').innerHTML='<div class="alert aerror">⚠ Escribe la solución antes de cerrar el ticket.</div>';
+    document.getElementById('tec-solucion').focus();
+    return;
+  }
+  const db=getTickets();const idx=db.findIndex(t=>t.id===id);if(idx<0)return;
+  const ahora=new Date().toISOString();
+  db[idx].solucion=sol;
+  db[idx].estado='Cerrado';
+  db[idx].fecha_cierre=ahora;
+  db[idx].firma=getFirmaBase64();
+  db[idx].notas.push({fecha:ahora,texto:'Cerrado por '+(tecActual?tecActual.nombre:'técnico')+'.',tipo:'estado'});
+
+  const inp=document.getElementById('tec-fotos');
+  const guardarYMostrar=()=>{saveTickets(db);mostrarExito(db[idx]);};
+
+  if(inp&&inp.files.length){
+    let n=0;
+    Array.from(inp.files).forEach(f=>{
+      const r=new FileReader();
+      r.onload=e=>{db[idx].fotos.push(e.target.result);n++;if(n===inp.files.length)guardarYMostrar();};
+      r.readAsDataURL(f);
+    });
+  } else guardarYMostrar();
+}
+
+function mostrarExito(t){
+  document.getElementById('ticket-detalle').innerHTML=`
+    <div class="card" style="text-align:center;padding:40px 24px;">
+      <div style="font-size:64px;margin-bottom:14px;">✅</div>
+      <h2 style="font-size:22px;color:var(--green);margin-bottom:8px;">¡Ticket Cerrado!</h2>
+      <p style="color:var(--muted);font-size:14px;margin-bottom:4px;font-family:var(--mono);font-weight:700;">${escH(t.num)}</p>
+      <p style="color:var(--muted);font-size:14px;margin-bottom:4px;">${escH(t.estacion_nombre)}</p>
+      <p style="color:var(--green);font-size:14px;font-weight:600;margin-top:10px;">⏱ Duración: ${duracion(t.fecha_apertura,t.fecha_cierre)||'—'}</p>
+      <p style="font-size:13px;color:var(--muted);margin-top:14px;">El reporte fue guardado correctamente en el sistema.</p>
+      ${tecActual?`<button class="btn bgray" onclick="volverALista()" style="width:auto;padding:10px 28px;margin-top:20px;">← Ver mis tickets</button>`:''}
+    </div>`;
+}
+
+// ── Firma Canvas ──────────────────────────────────────────────
+let _draw=false,_ctx=null,_cv=null;
+function initFirma(){
+  _cv=document.getElementById('canvas-firma');
+  if(!_cv){return;}
+  _cv.width=_cv.offsetWidth||340;
+  _cv.height=130;
+  _ctx=_cv.getContext('2d');
+  _ctx.strokeStyle='#0f172a';_ctx.lineWidth=2.5;_ctx.lineCap='round';_ctx.lineJoin='round';
+  _cv.onmousedown=_cv.ontouchstart=(e)=>{
+    _draw=true;
+    const p=getPos(e);_ctx.beginPath();_ctx.moveTo(p.x,p.y);
+    e.preventDefault();
+  };
+  _cv.onmousemove=_cv.ontouchmove=(e)=>{
+    if(!_draw)return;
+    const p=getPos(e);_ctx.lineTo(p.x,p.y);_ctx.stroke();
+    e.preventDefault();
+  };
+  document.onmouseup=document.ontouchend=()=>_draw=false;
+}
+function getPos(e){
+  const r=_cv.getBoundingClientRect();
+  const t=e.touches?e.touches[0]:e;
+  return{x:(t.clientX-r.left)*(_cv.width/r.width),y:(t.clientY-r.top)*(_cv.height/r.height)};
+}
+function limpiarFirma(){if(_ctx&&_cv)_ctx.clearRect(0,0,_cv.width,_cv.height);}
+function getFirmaBase64(){
+  if(!_cv||!_ctx)return null;
+  const d=_ctx.getImageData(0,0,_cv.width,_cv.height).data;
+  for(let i=3;i<d.length;i+=4){if(d[i]>0)return _cv.toDataURL();}
+  return null;
+}
+
+// ── Preview fotos ─────────────────────────────────────────────
+function initFotoPreview(){
+  const inp=document.getElementById('tec-fotos');
+  if(inp) inp.onchange=()=>{
+    const prev=document.getElementById('fotos-preview');if(!prev)return;
+    prev.innerHTML='';
+    Array.from(inp.files).forEach(f=>{
+      const r=new FileReader();
+      r.onload=e=>{const img=document.createElement('img');img.src=e.target.result;img.className='photo-thumb';prev.appendChild(img);};
+      r.readAsDataURL(f);
+    });
+  };
+}
+
+// ── Init ──────────────────────────────────────────────────────
+function init(){
+  const params=new URLSearchParams(window.location.search);
+  const token=params.get('token');
+
+  if(token){
+    // ENLACE MÁGICO: buscar ticket por token
+    const t=getTickets().find(x=>x.token_cierre===token);
+    if(t){
+      document.getElementById('btn-volver').style.display='none';
+      renderDetalleTicket(t);
+      showScreen('screen-ticket');
+      setTimeout(()=>{initFirma();initFotoPreview();},300);
+    } else {
+      document.getElementById('screen-login').innerHTML=`
+        <div class="card" style="max-width:340px;margin:0 auto;text-align:center;padding:32px;">
+          <div style="font-size:48px;margin-bottom:12px;">⚠️</div>
+          <h2 style="font-size:17px;margin-bottom:8px;">Enlace no válido</h2>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Este enlace ya fue usado o expiró. Ingresa con tu PIN.</p>
+          <button class="btn bprimary" onclick="location.search=''" style="width:auto;padding:10px 24px;">Ir al Portal</button>
+        </div>`;
+      showScreen('screen-login');
+    }
+    return;
+  }
+
+  // Modo normal: mostrar login con PIN
+  showScreen('screen-login');
+  setTimeout(()=>document.getElementById('pin-input').focus(),100);
+}
+
+init();
+</script>
+</body>
+</html>
