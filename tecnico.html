@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ConTecAd — Cierre de Ticket</title>
+<style>
+:root{
+  --accent:#2563eb;--green:#16a34a;--red:#dc2626;--warn:#d97706;
+  --bg:#f8fafc;--card:#ffffff;--border:#e2e8f0;
+  --text:#0f172a;--muted:#64748b;--mono:'Consolas','Courier New',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+.hdr{background:#1e3a5f;color:#fff;padding:14px 20px;}
+.hdr h1{font-size:17px;font-weight:700;}
+.hdr p{font-size:12px;opacity:.7;margin-top:2px;}
+.main{max-width:600px;margin:0 auto;padding:20px 16px;}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.08);}
+.badge{display:inline-block;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600;}
+.alta{background:#fef2f2;color:#b91c1c;border:1px solid #fca5a5;}
+.media{background:#fffbeb;color:#92400e;border:1px solid #fcd34d;}
+.baja{background:#f0fdf4;color:#15803d;border:1px solid #86efac;}
+.field{background:var(--bg);border-radius:8px;padding:11px 13px;margin-bottom:10px;font-size:13px;}
+.field strong{font-size:10px;text-transform:uppercase;color:var(--muted);letter-spacing:.4px;display:block;margin-bottom:3px;}
+label{display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;margin-top:16px;}
+textarea{width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:8px;font-size:16px;font-family:inherit;background:var(--card);color:var(--text);resize:vertical;min-height:110px;}
+textarea:focus{outline:none;border-color:var(--accent);}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:15px 20px;border-radius:9px;border:none;font-size:16px;font-weight:700;cursor:pointer;width:100%;margin-top:14px;font-family:inherit;}
+.btn-green{background:var(--green);color:#fff;}
+.maps-btn{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--green);color:#fff;padding:13px;border-radius:9px;text-decoration:none;font-weight:700;font-size:15px;margin-bottom:12px;}
+.step{display:flex;align-items:center;gap:10px;padding:12px;background:var(--bg);border-radius:8px;margin-bottom:8px;font-size:13px;}
+.step-num{width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <h1>👷 Cierre de Ticket — ConTecAd</h1>
+  <p>Portal del Técnico</p>
+</div>
+
+<div class="main" id="main-content">
+  <div class="card" style="text-align:center;padding:40px;">
+    <div style="font-size:40px;">⏳</div>
+    <p style="margin-top:12px;color:var(--muted);">Cargando información del ticket...</p>
+  </div>
+</div>
+
+<script>
+// ── Decodificar datos del ticket desde el hash de la URL ──────
+function getTktData(){
+  try{
+    const hash = window.location.hash;
+    const match = hash.match(/tkt=([^&]+)/);
+    if(!match) return null;
+    return JSON.parse(decodeURIComponent(escape(atob(match[1]))));
+  }catch(e){ return null; }
+}
+
+function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function mapsUrl(ll){
+  if(!ll)return null;
+  const p=ll.replace(/\s/g,'').split(',');
+  if(p.length!==2)return null;
+  const la=parseFloat(p[0]),lo=parseFloat(p[1]);
+  return isNaN(la)||isNaN(lo)?null:'https://www.google.com/maps?q='+la+','+lo;
+}
+function fmtDT(s){
+  if(!s)return'—';
+  try{const d=new Date(s);return d.toLocaleDateString('es-HN',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+d.toLocaleTimeString('es-HN',{hour:'2-digit',minute:'2-digit'});}
+  catch(e){return s;}
+}
+
+// ── Enviar cierre por correo (mailto: — sin login, sin Google) ──
+function enviarCierre(tkt){
+  const sol = document.getElementById('tec-solucion').value.trim();
+  if(!sol){
+    alert('Por favor describe la solución antes de enviar.');
+    document.getElementById('tec-solucion').focus();
+    return;
+  }
+  const ahora = new Date().toLocaleString('es-HN');
+  const linea = '\u2501'.repeat(50);
+
+  const asunto = '[CIERRE] Ticket ' + tkt.num + ' \u2014 ' + tkt.estacion;
+  const cuerpo = [
+    '',
+    'NOTIFICACION DE CIERRE DE TICKET',
+    'ConTecAd - Soporte Tecnico',
+    '',
+    'INFORMACION DEL TICKET',
+    linea,
+    '  N Ticket    :  ' + tkt.num,
+    '  Tecnico     :  ' + tkt.tecnico,
+    '  Fecha/Hora  :  ' + ahora,
+    '',
+    'ESTACION / SITIO',
+    linea,
+    '  Nombre      :  ' + tkt.estacion + (tkt.ciudad ? ', ' + tkt.ciudad : ''),
+    '  Categoria   :  ' + tkt.categoria,
+    '  Prioridad   :  ' + tkt.prioridad,
+    '  Tipo de Caso:  ' + (tkt.tipoCaso || '-'),
+    '  Contacto    :  ' + (tkt.contacto || '-'),
+    '  Telefono    :  ' + (tkt.telefono || '-'),
+    '',
+    'PROBLEMA REPORTADO',
+    linea,
+    '  ' + tkt.descripcion,
+    '',
+    'SOLUCION APLICADA',
+    linea,
+    '  ' + sol,
+    '',
+    linea,
+    '  RECORDATORIO: Este ticket debe cerrarse',
+    '  MANUALMENTE en el sistema HelpDesk.',
+    linea,
+    '',
+    'Enviado desde el Portal del Tecnico ConTecAd',
+  ].join('\n');
+
+  const mailto = 'mailto:contecadocs@gmail.com'
+    + '?subject=' + encodeURIComponent(asunto)
+    + '&body='    + encodeURIComponent(cuerpo);
+
+  window.location.href = mailto;
+
+  setTimeout(function(){
+    document.getElementById('main-content').innerHTML =
+      '<div class="card" style="text-align:center;padding:40px 24px;">'
+      + '<div style="font-size:64px;margin-bottom:14px;">\u2705</div>'
+      + '<h2 style="font-size:22px;color:var(--green);margin-bottom:10px;">\u00a1Listo!</h2>'
+      + '<p style="color:var(--muted);font-size:14px;margin-bottom:6px;">Ticket: <strong>' + escH(tkt.num) + '</strong></p>'
+      + '<p style="color:var(--muted);font-size:14px;margin-bottom:16px;">' + escH(tkt.estacion) + '</p>'
+      + '<div style="background:#f0fdf4;border-radius:9px;padding:14px;font-size:13px;color:#15803d;text-align:left;">'
+      + 'Tu app de correo se abri\u00f3 con el reporte listo. Solo presiona <strong>Enviar</strong>.<br><br>'
+      + 'El administrador recibir\u00e1 la notificaci\u00f3n y cerrar\u00e1 el ticket en el sistema.'
+      + '</div>'
+      + '<p style="font-size:12px;color:var(--muted);margin-top:16px;">Si el correo no se abri\u00f3 autom\u00e1ticamente, env\u00eda el reporte manualmente a contecadocs@gmail.com</p>'
+      + '</div>';
+  }, 1200);
+}
+
+// ── Renderizar la página con los datos del ticket ─────────────
+function render(tkt){
+  const url = mapsUrl(tkt.latlon);
+  document.getElementById('main-content').innerHTML = `
+
+    <!-- Encabezado del ticket -->
+    <div class="card">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+        <span style="font-family:var(--mono);font-weight:700;color:var(--accent);font-size:15px;">${escH(tkt.num)}</span>
+        <span class="badge ${(tkt.prioridad||'').toLowerCase()}">${escH(tkt.prioridad)}</span>
+        ${tkt.tipoCaso?`<span style="font-size:12px;background:#eff6ff;color:#1d4ed8;padding:3px 9px;border-radius:8px;border:1px solid #bfdbfe;">${escH(tkt.tipoCaso)}</span>`:''}
+      </div>
+
+      <div class="field"><strong>Estación / Sitio</strong>
+        ${escH(tkt.estacion)}${tkt.ciudad?', '+escH(tkt.ciudad):''}
+        ${tkt.dir?`<div style="font-size:12px;color:var(--muted);margin-top:3px;">📍 ${escH(tkt.dir)}</div>`:''}
+      </div>
+
+      ${url?`<a href="${url}" target="_blank" class="maps-btn">📍 Abrir Ubicación en Google Maps</a>`:''}
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="field"><strong>Contacto</strong>${escH(tkt.contacto||'—')}</div>
+        <div class="field"><strong>Teléfono</strong>
+          ${tkt.telefono?`<a href="tel:${escH(tkt.telefono)}" style="color:var(--accent);font-weight:600;">${escH(tkt.telefono)}</a>`:'—'}
+        </div>
+      </div>
+
+      <div class="field"><strong>Descripción del Problema</strong>${escH(tkt.descripcion)}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="field"><strong>Categoría</strong>${escH(tkt.categoria)}</div>
+        <div class="field"><strong>Apertura</strong>${fmtDT(tkt.apertura)}</div>
+      </div>
+    </div>
+
+    <!-- Pasos -->
+    <div class="card">
+      <div style="font-size:15px;font-weight:700;margin-bottom:14px;">📋 Para cerrar este ticket:</div>
+      <div class="step"><div class="step-num">1</div><div>Resuelve el problema en sitio / remotamente</div></div>
+      <div class="step"><div class="step-num">2</div><div>Escribe la solución abajo</div></div>
+      <div class="step"><div class="step-num">3</div><div>Presiona <strong>"Enviar Notificación de Cierre"</strong> — se abrirá tu correo, solo da Enviar</div></div>
+    </div>
+
+    <!-- Formulario de cierre -->
+    <div class="card">
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px;">✅ Notificar Cierre</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:4px;">Técnico: <strong>${escH(tkt.tecnico)}</strong></p>
+
+      <label>Solución Aplicada <span style="color:var(--red);">*</span></label>
+      <textarea id="tec-solucion" rows="5"
+        placeholder="Describe detalladamente qué hiciste para resolver el problema..."></textarea>
+
+      <button class="btn btn-green" onclick="enviarCierre(tktData)">
+        ✅ Enviar Notificación de Cierre
+      </button>
+      <p style="font-size:11px;color:var(--muted);margin-top:10px;text-align:center;">
+        Se abrirá tu aplicación de correo con el reporte pre-rellenado a contecadocs@gmail.com.<br>Solo presiona <strong>Enviar</strong>.
+      </p>
+    </div>`;
+}
+
+// ── Página de error ───────────────────────────────────────────
+function renderError(){
+  document.getElementById('main-content').innerHTML=`
+    <div class="card" style="text-align:center;padding:40px 24px;">
+      <div style="font-size:52px;margin-bottom:14px;">⚠️</div>
+      <h2 style="font-size:18px;margin-bottom:10px;">Enlace no válido</h2>
+      <p style="font-size:14px;color:var(--muted);">Este enlace no contiene datos del ticket o es incorrecto.<br>Por favor usa el enlace del correo que recibiste.</p>
+    </div>`;
+}
+
+// ── Inicio ────────────────────────────────────────────────────
+var tktData = getTktData();
+if(tktData){ render(tktData); }
+else{ renderError(); }
+</script>
+</body>
+</html>
