@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ConTecAd — Cierre de Ticket</title>
+<style>
+:root{
+  --accent:#2563eb;--green:#16a34a;--red:#dc2626;--warn:#d97706;
+  --bg:#f8fafc;--card:#ffffff;--border:#e2e8f0;
+  --text:#0f172a;--muted:#64748b;--mono:'Consolas','Courier New',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+.hdr{background:#1e3a5f;color:#fff;padding:14px 20px;}
+.hdr h1{font-size:17px;font-weight:700;}
+.hdr p{font-size:12px;opacity:.7;margin-top:2px;}
+.main{max-width:600px;margin:0 auto;padding:20px 16px;}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.08);}
+.badge{display:inline-block;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600;}
+.alta{background:#fef2f2;color:#b91c1c;border:1px solid #fca5a5;}
+.media{background:#fffbeb;color:#92400e;border:1px solid #fcd34d;}
+.baja{background:#f0fdf4;color:#15803d;border:1px solid #86efac;}
+.field{background:var(--bg);border-radius:8px;padding:11px 13px;margin-bottom:10px;font-size:13px;}
+.field strong{font-size:10px;text-transform:uppercase;color:var(--muted);letter-spacing:.4px;display:block;margin-bottom:3px;}
+label{display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;margin-top:16px;}
+textarea{width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:8px;font-size:16px;font-family:inherit;background:var(--card);color:var(--text);resize:vertical;min-height:110px;}
+textarea:focus{outline:none;border-color:var(--accent);}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:15px 20px;border-radius:9px;border:none;font-size:16px;font-weight:700;cursor:pointer;width:100%;margin-top:14px;font-family:inherit;}
+.btn-green{background:var(--green);color:#fff;}
+.maps-btn{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--green);color:#fff;padding:13px;border-radius:9px;text-decoration:none;font-weight:700;font-size:15px;margin-bottom:12px;}
+.step{display:flex;align-items:center;gap:10px;padding:12px;background:var(--bg);border-radius:8px;margin-bottom:8px;font-size:13px;}
+.step-num{width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;}
+.doc-acept-banner{background:#fef3c7;border:1.5px solid #f59e0b;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#92400e;display:flex;gap:10px;align-items:flex-start;}
+.gtable{width:100%;border-collapse:collapse;margin:8px 0;font-size:13px;}
+.gtable th{background:#0f172a;color:#fff;padding:7px 8px;font-size:11px;text-align:left;}
+.gtable td{padding:6px 8px;border:1px solid var(--border);}
+.gtable input{border:none;width:100%;padding:4px;font-size:13px;background:transparent;}
+.gtable input:focus{outline:1px solid var(--accent);border-radius:3px;}
+.rb-group{display:flex;gap:14px;margin-top:6px;}
+.rb-opt{display:flex;align-items:center;gap:5px;font-size:13px;}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+
+<div class="hdr">
+  <h1>👷 Cierre de Ticket — ConTecAd</h1>
+  <p>Portal del Técnico</p>
+</div>
+
+<div class="main" id="main-content">
+  <div class="card" style="text-align:center;padding:40px;">
+    <div style="font-size:40px;">⏳</div>
+    <p style="margin-top:12px;color:var(--muted);">Cargando información del ticket...</p>
+  </div>
+</div>
+
+<script>
+// ── Decodificar datos del ticket desde el hash de la URL ──────
+function getTktData(){
+  try{
+    const hash = window.location.hash;
+    const match = hash.match(/tkt=([^&]+)/);
+    if(!match) return null;
+    return JSON.parse(decodeURIComponent(escape(atob(match[1]))));
+  }catch(e){ return null; }
+}
+
+function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function mapsUrl(ll){
+  if(!ll)return null;
+  const p=ll.replace(/\s/g,'').split(',');
+  if(p.length!==2)return null;
+  const la=parseFloat(p[0]),lo=parseFloat(p[1]);
+  return isNaN(la)||isNaN(lo)?null:'https://www.google.com/maps?q='+la+','+lo;
+}
+function fmtDT(s){
+  if(!s)return'—';
+  try{const d=new Date(s);return d.toLocaleDateString('es-HN',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+d.toLocaleTimeString('es-HN',{hour:'2-digit',minute:'2-digit'});}
+  catch(e){return s;}
+}
+
+// ── Enviar cierre por correo (mailto: — sin login, sin Google) ──
+function enviarCierre(tkt){
+  const sol = document.getElementById('tec-solucion').value.trim();
+  if(!sol){
+    alert('Por favor describe la solución antes de enviar.');
+    document.getElementById('tec-solucion').focus();
+    return;
+  }
+
+  // Validación específica del Documento de Aceptación (Puma/Shell)
+  if(tkt.requierePumaShell && !hayFirmaDA()){
+    alert('Este ticket requiere el Documento de Aceptación firmado por el cliente.\n\nPide al cliente que firme en la sección "Firma del Cliente (Recibí Conforme)" antes de continuar.');
+    document.getElementById('canvas-firma-da')?.scrollIntoView({behavior:'smooth',block:'center'});
+    return;
+  }
+
+  // Generar y descargar el PDF del Documento de Aceptación (si aplica)
+  if(tkt.requierePumaShell){
+    try{
+      const docPDF = generarPDFDocAceptacion(tkt);
+      docPDF.save('DocAceptacion_'+(tkt.docAceptacionNum||'SN')+'_'+tkt.num.replace(/[^a-z0-9]/gi,'_')+'.pdf');
+    }catch(e){
+      console.error('Error generando PDF Documento de Aceptación:', e);
+      alert('Hubo un error generando el PDF del Documento de Aceptación. El cierre continuará, pero avisa al administrador.');
+    }
+  }
+
+  const ahora = new Date().toLocaleString('es-HN');
+
+  const asunto = (tkt.requierePumaShell?'[PUMA/SHELL] ':'') + '[CIERRE] Ticket ' + tkt.num + ' - ' + tkt.estacion;
+  // Cuerpo compacto (los mailto: largos fallan silenciosamente en varios apps Android)
+  const cuerpo = [
+    'CIERRE DE TICKET ' + tkt.num,
+    'Tecnico: ' + tkt.tecnico,
+    'Fecha: ' + ahora,
+    '',
+    'Estacion: ' + tkt.estacion + (tkt.ciudad ? ', ' + tkt.ciudad : ''),
+    'Categoria: ' + tkt.categoria + ' | Prioridad: ' + tkt.prioridad,
+    '',
+    'Problema: ' + tkt.descripcion,
+    '',
+    'Solucion: ' + sol,
+    tkt.requierePumaShell ? '\nDocumento de Aceptacion N ' + (tkt.docAceptacionNum||'') + ': se descargo un PDF a este celular. ADJUNTALO manualmente a este correo antes de enviar.' : '',
+    '',
+    '(Cerrar manualmente en el sistema HelpDesk)'
+  ].join('\n');
+
+  const mailto = 'mailto:contecadocs@gmail.com'
+    + '?subject=' + encodeURIComponent(asunto)
+    + '&body='    + encodeURIComponent(cuerpo);
+
+  setTimeout(function(){ window.location.href = mailto; }, tkt.requierePumaShell ? 900 : 0);
+
+  // Pantalla de confirmación clara — el técnico debe confirmar que YA presionó Enviar
+  // (el navegador nunca puede saber si el correo realmente se envió)
+  setTimeout(function(){
+    document.getElementById('main-content').innerHTML =
+      '<div class="card" style="text-align:center;padding:32px 24px;">'
+      + '<div style="font-size:52px;margin-bottom:10px;">\u270d\ufe0f</div>'
+      + '<h2 style="font-size:19px;color:#1d4ed8;margin-bottom:10px;">\u00a1Un paso m\u00e1s!</h2>'
+      + (tkt.requierePumaShell ? (
+        '<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:9px;padding:14px;font-size:13px;color:#15803d;text-align:left;margin-bottom:10px;">'
+        + '\u2705 <strong>PDF descargado</strong> a este celular (revisa la carpeta de Descargas).'
+        + '</div>'
+      ) : '')
+      + '<div style="background:#fffbeb;border:1.5px solid #fcd34d;border-radius:9px;padding:16px;font-size:14px;color:#92400e;text-align:left;margin-bottom:16px;">'
+      + '<strong>\u26a0\ufe0f Tu app de correo se abri\u00f3</strong>, pero el correo NO se ha enviado todav\u00eda.<br><br>'
+      + 'Ve a tu app de correo (Gmail, Outlook, etc.)'
+      + (tkt.requierePumaShell ? ', <strong>adjunta el PDF que se descargo</strong>,' : '')
+      + ' revisa que el mensaje tenga el asunto y contenido, y presiona el bot\u00f3n <strong>ENVIAR</strong> ah\u00ed mismo.'
+      + '</div>'
+      + '<button class="btn btn-green" id="btn-confirmado" style="margin-top:0;">Ya presion\u00e9 Enviar en mi correo</button>'
+      + '<button class="btn" style="background:#e2e8f0;color:#0f172a;margin-top:8px;" id="btn-reintentar">Abrir mi app de correo de nuevo</button>'
+      + '<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);text-align:left;">'
+      + '<p style="font-size:11px;color:var(--muted);margin-bottom:6px;">\u00bfNo te abri\u00f3 ninguna app de correo? Copia este texto y env\u00edalo por WhatsApp o cualquier medio a <strong>contecadocs@gmail.com</strong>:</p>'
+      + '<textarea readonly style="width:100%;min-height:100px;font-size:11px;font-family:var(--mono);background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px;" onclick="this.select()">' + escH(asunto + String.fromCharCode(10) + String.fromCharCode(10) + cuerpo) + '</textarea>'
+      + '</div>'
+      + '</div>';
+
+    document.getElementById('btn-confirmado').addEventListener('click', function(){
+      document.getElementById('main-content').innerHTML =
+        '<div class="card" style="text-align:center;padding:40px 24px;">'
+        + '<div style="font-size:64px;margin-bottom:14px;">\u2705</div>'
+        + '<h2 style="font-size:22px;color:var(--green);margin-bottom:10px;">\u00a1Gracias!</h2>'
+        + '<p style="color:var(--muted);font-size:14px;">El administrador cerrar\u00e1 el ticket ' + escH(tkt.num) + ' en el sistema.</p>'
+        + '</div>';
+    });
+    document.getElementById('btn-reintentar').addEventListener('click', function(){
+      window.location.href = mailto;
+    });
+  }, 800);
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// DOCUMENTO DE ACEPTACIÓN (solo Puma / Shell)
+// ══════════════════════════════════════════════════════════════
+function buildDocAceptacionSectionHTML(tkt){
+  return `
+    <div class="card">
+      <div class="doc-acept-banner">
+        <span style="font-size:20px;">📋</span>
+        <div><strong>Este ticket requiere Documento de Aceptación</strong><br>N° ${escH(tkt.docAceptacionNum||'—')} — Completa este formulario antes de cerrar el ticket.</div>
+      </div>
+
+      <label>Nombre del Contratista</label>
+      <input type="text" id="da-contratista" placeholder="Nombre de la empresa contratista">
+
+      <label>Lugar a Realizar el Trabajo</label>
+      <input type="text" id="da-lugar" value="${escH(tkt.estacion||'')}">
+
+      <label>Trabajos Desarrollados</label>
+      <textarea id="da-trabajos" rows="3" placeholder="Describe los trabajos realizados..."></textarea>
+
+      <label style="margin-top:16px;">Detalles de Gastos</label>
+      <table class="gtable">
+        <thead><tr><th>Concepto</th><th style="width:80px;">Moneda</th><th style="width:90px;">Valor</th></tr></thead>
+        <tbody>
+          <tr><td>Transporte</td><td><input type="text" id="da-g1-mon" value="Lps"></td><td><input type="number" id="da-g1-val" min="0" step="0.01" oninput="calcTotalGastosDA()"></td></tr>
+          <tr><td>Mano de obra</td><td><input type="text" id="da-g2-mon" value="Lps"></td><td><input type="number" id="da-g2-val" min="0" step="0.01" oninput="calcTotalGastosDA()"></td></tr>
+          <tr><td>Materiales</td><td><input type="text" id="da-g3-mon" value="Lps"></td><td><input type="number" id="da-g3-val" min="0" step="0.01" oninput="calcTotalGastosDA()"></td></tr>
+          <tr><td><input type="text" id="da-g4-desc" placeholder="Otro concepto"></td><td><input type="text" id="da-g4-mon" value="Lps"></td><td><input type="number" id="da-g4-val" min="0" step="0.01" oninput="calcTotalGastosDA()"></td></tr>
+          <tr style="background:#f8fafc;font-weight:700;"><td>TOTAL</td><td></td><td id="da-total-gastos" style="padding:6px 8px;">0.00</td></tr>
+        </tbody>
+      </table>
+
+      <label style="margin-top:16px;">Horas Hombre Trabajadas</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div><label style="margin-top:0;font-size:11px;">Cantidad de Hombres</label><input type="number" id="da-hh-hombres" min="0" step="1" value="1" oninput="calcTotalHorasDA()"></div>
+        <div><label style="margin-top:0;font-size:11px;">Horas Trabajadas</label><input type="number" id="da-hh-horas" min="0" step="0.5" value="1" oninput="calcTotalHorasDA()"></div>
+      </div>
+      <div class="field" style="margin-top:8px;"><strong>Total de Horas Hombre</strong><span id="da-hh-total">1</span></div>
+
+      <div style="height:1px;background:var(--border);margin:18px 0;"></div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:4px;">✍️ Sección del Cliente</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:8px;">Esta parte la completa y firma el cliente al recibir el trabajo.</p>
+
+      <label>Calificación del Servicio</label>
+      <div class="rb-group">
+        <label class="rb-opt"><input type="radio" name="da-calif" value="A"> A: 100%</label>
+        <label class="rb-opt"><input type="radio" name="da-calif" value="B"> B: 90-80%</label>
+        <label class="rb-opt"><input type="radio" name="da-calif" value="C"> C: 70-60%</label>
+      </div>
+
+      <label>Comentarios del Cliente</label>
+      <input type="text" id="da-comentarios" placeholder="Comentarios sobre el servicio...">
+
+      <label>Nombre de Quien Recibe</label>
+      <input type="text" id="da-recibe-nombre" placeholder="Nombre de la persona que firma">
+
+      <label>Posición / Cargo</label>
+      <input type="text" id="da-recibe-cargo" placeholder="Cargo de quien recibe">
+
+      <label>Firma del Cliente (Recibí Conforme) <span style="color:var(--red);">*</span></label>
+      <canvas id="canvas-firma-da"></canvas>
+      <button type="button" class="btn" style="background:#e2e8f0;color:#0f172a;width:auto;padding:7px 18px;margin-top:8px;font-size:13px;" onclick="limpiarFirmaDA()">Limpiar firma</button>
+    </div>`;
+}
+
+function calcTotalGastosDA(){
+  const ids=['da-g1-val','da-g2-val','da-g3-val','da-g4-val'];
+  let total=0;
+  ids.forEach(id=>{ const el=document.getElementById(id); if(el) total += parseFloat(el.value)||0; });
+  const out=document.getElementById('da-total-gastos');
+  if(out) out.textContent = total.toFixed(2);
+}
+
+function calcTotalHorasDA(){
+  const h=parseFloat(document.getElementById('da-hh-hombres')?.value)||0;
+  const t=parseFloat(document.getElementById('da-hh-horas')?.value)||0;
+  const out=document.getElementById('da-hh-total');
+  if(out) out.textContent = (h*t).toFixed(1);
+}
+
+// ── Firma del Documento de Aceptación (canvas separado) ─────────
+let _drawDA=false,_ctxDA=null,_cvDA=null;
+function initFirmaDocAceptacion(){
+  _cvDA=document.getElementById('canvas-firma-da');
+  if(!_cvDA) return;
+  _cvDA.width=_cvDA.offsetWidth;
+  _cvDA.height=130;
+  _ctxDA=_cvDA.getContext('2d');
+  _ctxDA.strokeStyle='#0f172a';_ctxDA.lineWidth=2.5;_ctxDA.lineCap='round';_ctxDA.lineJoin='round';
+  function pos(e){
+    const r=_cvDA.getBoundingClientRect();
+    const t=e.touches?e.touches[0]:e;
+    return{x:(t.clientX-r.left)*(_cvDA.width/r.width),y:(t.clientY-r.top)*(_cvDA.height/r.height)};
+  }
+  _cvDA.onmousedown=_cvDA.ontouchstart=e=>{_drawDA=true;const p=pos(e);_ctxDA.beginPath();_ctxDA.moveTo(p.x,p.y);e.preventDefault();};
+  _cvDA.onmousemove=_cvDA.ontouchmove=e=>{if(!_drawDA)return;const p=pos(e);_ctxDA.lineTo(p.x,p.y);_ctxDA.stroke();e.preventDefault();};
+  _cvDA.onmouseup=_cvDA.onmouseleave=_cvDA.ontouchend=_cvDA.ontouchcancel=()=>_drawDA=false;
+}
+function limpiarFirmaDA(){ if(_ctxDA&&_cvDA) _ctxDA.clearRect(0,0,_cvDA.width,_cvDA.height); }
+function hayFirmaDA(){
+  if(!_cvDA||!_ctxDA) return false;
+  const d=_ctxDA.getImageData(0,0,_cvDA.width,_cvDA.height).data;
+  for(let i=3;i<d.length;i+=4){ if(d[i]>0) return true; }
+  return false;
+}
+function getFirmaDABase64(){ return hayFirmaDA() ? _cvDA.toDataURL('image/png') : null; }
+
+// ── Construir y descargar el PDF del Documento de Aceptación ────
+function generarPDFDocAceptacion(tkt){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({orientation:'portrait',unit:'mm',format:'letter'});
+  const W=215.9, ml=14, mr=14, cw=W-ml-mr;
+  let y = 16;
+
+  doc.setFont('helvetica','bold');doc.setFontSize(14);doc.setTextColor(20,20,20);
+  doc.text('DOCUMENTO DE ACEPTACIÓN', ml, y);
+  doc.setFont('helvetica','normal');doc.setFontSize(10);
+  doc.text('N° '+(tkt.docAceptacionNum||'—'), W-mr, y, {align:'right'});
+  y += 4;
+  doc.setDrawColor(20,20,20);doc.setLineWidth(0.5);doc.line(ml,y,W-mr,y);
+  y += 8;
+
+  doc.setFontSize(9);doc.setTextColor(20,20,20);
+  const contratista = document.getElementById('da-contratista')?.value || '—';
+  const lugar = document.getElementById('da-lugar')?.value || '—';
+  const trabajos = document.getElementById('da-trabajos')?.value || '—';
+
+  doc.text('Nombre del contratista: '+contratista, ml, y); y+=7;
+  doc.text('Lugar a realizar el trabajo: '+lugar, ml, y); y+=7;
+  const trabLines = doc.splitTextToSize('Trabajos desarrollados: '+trabajos, cw);
+  doc.text(trabLines, ml, y); y += trabLines.length*5 + 4;
+
+  // Tabla de gastos
+  doc.setFillColor(20,20,20); doc.setTextColor(255,255,255);
+  doc.rect(ml, y, cw*0.7, 7, 'F'); doc.rect(ml+cw*0.7, y, cw*0.3, 7, 'F');
+  doc.setFontSize(8.5);
+  doc.text('DETALLES DE GASTOS', ml+2, y+5);
+  doc.text('VALOR (MONEDA)', ml+cw*0.7+2, y+5);
+  y += 7;
+
+  doc.setTextColor(20,20,20);doc.setDrawColor(180,180,180);doc.setLineWidth(0.2);
+  const gastos = [
+    ['Transporte', document.getElementById('da-g1-val')?.value, document.getElementById('da-g1-mon')?.value],
+    ['Mano de obra', document.getElementById('da-g2-val')?.value, document.getElementById('da-g2-mon')?.value],
+    ['Materiales', document.getElementById('da-g3-val')?.value, document.getElementById('da-g3-mon')?.value],
+    [document.getElementById('da-g4-desc')?.value||'', document.getElementById('da-g4-val')?.value, document.getElementById('da-g4-mon')?.value]
+  ];
+  gastos.forEach(([label,val,mon])=>{
+    doc.rect(ml,y,cw*0.7,6); doc.rect(ml+cw*0.7,y,cw*0.3,6);
+    doc.text(String(label||''), ml+2, y+4.2);
+    if(val) doc.text((mon||'')+' '+parseFloat(val).toFixed(2), ml+cw*0.7+2, y+4.2);
+    y+=6;
+  });
+  doc.setFont('helvetica','bold');
+  doc.rect(ml,y,cw*0.7,7); doc.rect(ml+cw*0.7,y,cw*0.3,7);
+  doc.text('TOTAL', ml+2, y+5);
+  doc.text(document.getElementById('da-total-gastos')?.textContent||'0.00', ml+cw*0.7+2, y+5);
+  doc.setFont('helvetica','normal');
+  y += 12;
+
+  // Horas hombre
+  doc.setFont('helvetica','bold');doc.setFontSize(9);
+  doc.text('HORAS HOMBRE TRABAJADAS', ml, y); y+=6;
+  doc.setFont('helvetica','normal');
+  doc.text('Cantidad de hombres: '+(document.getElementById('da-hh-hombres')?.value||'0'), ml, y); y+=6;
+  doc.text('Horas trabajadas: '+(document.getElementById('da-hh-horas')?.value||'0'), ml, y); y+=6;
+  doc.text('Total de horas hombre trabajadas: '+(document.getElementById('da-hh-total')?.textContent||'0'), ml, y); y+=10;
+
+  // Sección cliente
+  doc.setDrawColor(20,20,20);doc.setLineWidth(0.4);doc.line(ml,y,W-mr,y); y+=7;
+  doc.setFont('helvetica','bold');doc.setFontSize(10);
+  doc.text('SECCIÓN DEL CLIENTE', ml, y); y+=7;
+  doc.setFont('helvetica','normal');doc.setFontSize(9);
+
+  const calif = document.querySelector('input[name="da-calif"]:checked')?.value || '—';
+  doc.text('Calificación del servicio: '+calif+'  (A: 100%  B: 90-80%  C: 70-60%)', ml, y); y+=7;
+
+  const coment = document.getElementById('da-comentarios')?.value || '';
+  if(coment){
+    const cLines = doc.splitTextToSize('Comentarios: '+coment, cw);
+    doc.text(cLines, ml, y); y += cLines.length*5+2;
+  }
+  y += 4;
+
+  // Firma
+  const firmaB64 = getFirmaDABase64();
+  if(firmaB64){
+    try{ doc.addImage(firmaB64, 'PNG', ml, y, 70, 25); }catch(e){}
+  }
+  y += 27;
+  doc.setDrawColor(20,20,20);doc.setLineWidth(0.3);
+  doc.line(ml, y, ml+70, y);
+  doc.setFontSize(8);doc.setTextColor(80,80,80);
+  doc.text('Firma — Recibí Conforme', ml, y+4);
+
+  const nombreRecibe = document.getElementById('da-recibe-nombre')?.value || '';
+  const cargoRecibe  = document.getElementById('da-recibe-cargo')?.value || '';
+  doc.setTextColor(20,20,20);doc.setFontSize(9);
+  doc.text('Nombre: '+nombreRecibe, ml, y+11);
+  doc.text('Posición: '+cargoRecibe, ml, y+17);
+
+  doc.setFontSize(8);doc.setTextColor(120,120,120);
+  doc.text('Ticket relacionado: '+(tkt.num||'—')+'  |  Fecha: '+new Date().toLocaleDateString('es-HN'), ml, 279);
+
+  return doc;
+}
+
+// ── Renderizar la página con los datos del ticket ─────────────
+function render(tkt){
+  const url = mapsUrl(tkt.latlon);
+  document.getElementById('main-content').innerHTML = `
+
+    <!-- Encabezado del ticket -->
+    <div class="card">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+        <span style="font-family:var(--mono);font-weight:700;color:var(--accent);font-size:15px;">${escH(tkt.num)}</span>
+        <span class="badge ${(tkt.prioridad||'').toLowerCase()}">${escH(tkt.prioridad)}</span>
+        ${tkt.tipoCaso?`<span style="font-size:12px;background:#eff6ff;color:#1d4ed8;padding:3px 9px;border-radius:8px;border:1px solid #bfdbfe;">${escH(tkt.tipoCaso)}</span>`:''}
+      </div>
+
+      <div class="field"><strong>Estación / Sitio</strong>
+        ${escH(tkt.estacion)}${tkt.ciudad?', '+escH(tkt.ciudad):''}
+        ${tkt.dir?`<div style="font-size:12px;color:var(--muted);margin-top:3px;">📍 ${escH(tkt.dir)}</div>`:''}
+      </div>
+
+      ${url?`<a href="${url}" target="_blank" class="maps-btn">📍 Abrir Ubicación en Google Maps</a>`:''}
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="field"><strong>Contacto</strong>${escH(tkt.contacto||'—')}</div>
+        <div class="field"><strong>Teléfono</strong>
+          ${tkt.telefono?`<a href="tel:${escH(tkt.telefono)}" style="color:var(--accent);font-weight:600;">${escH(tkt.telefono)}</a>`:'—'}
+        </div>
+      </div>
+
+      <div class="field"><strong>Descripción del Problema</strong>${escH(tkt.descripcion)}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="field"><strong>Categoría</strong>${escH(tkt.categoria)}</div>
+        <div class="field"><strong>Apertura</strong>${fmtDT(tkt.apertura)}</div>
+      </div>
+    </div>
+
+    <!-- Pasos -->
+    <div class="card">
+      <div style="font-size:15px;font-weight:700;margin-bottom:14px;">📋 Para cerrar este ticket:</div>
+      <div class="step"><div class="step-num">1</div><div>Resuelve el problema en sitio / remotamente</div></div>
+      ${tkt.requierePumaShell?`<div class="step"><div class="step-num">2</div><div>Llena el <strong>Documento de Aceptación</strong> y pide la firma del cliente</div></div>
+      <div class="step"><div class="step-num">3</div><div>Escribe la solución</div></div>
+      <div class="step"><div class="step-num">4</div><div>Presiona <strong>"Enviar Notificación de Cierre"</strong> — descarga el PDF y abre tu correo</div></div>`
+      :`<div class="step"><div class="step-num">2</div><div>Escribe la solución abajo</div></div>
+      <div class="step"><div class="step-num">3</div><div>Presiona <strong>"Enviar Notificación de Cierre"</strong> — se abrirá tu correo, solo da Enviar</div></div>`}
+    </div>
+
+    ${tkt.requierePumaShell ? buildDocAceptacionSectionHTML(tkt) : ''}
+
+    <!-- Formulario de cierre -->
+    <div class="card">
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px;">✅ Notificar Cierre</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:4px;">Técnico: <strong>${escH(tkt.tecnico)}</strong></p>
+
+      <label>Solución Aplicada <span style="color:var(--red);">*</span></label>
+      <textarea id="tec-solucion" rows="5"
+        placeholder="Describe detalladamente qué hiciste para resolver el problema..."></textarea>
+
+      <button class="btn btn-green" onclick="enviarCierre(tktData)">
+        ✅ Enviar Notificación de Cierre
+      </button>
+      <p style="font-size:11px;color:var(--muted);margin-top:10px;text-align:center;">
+        ${tkt.requierePumaShell
+          ? 'Se descargará el PDF del Documento de Aceptación y se abrirá tu correo con el reporte. Adjunta el PDF descargado antes de enviar.'
+          : 'Se abrirá tu aplicación de correo con el reporte pre-rellenado a contecadocs@gmail.com.<br>Solo presiona <strong>Enviar</strong>.'}
+      </p>
+    </div>`;
+
+  if(tkt.requierePumaShell) setTimeout(initFirmaDocAceptacion, 200);
+}
+
+// ── Página de error ───────────────────────────────────────────
+function renderError(){
+  document.getElementById('main-content').innerHTML=`
+    <div class="card" style="text-align:center;padding:40px 24px;">
+      <div style="font-size:52px;margin-bottom:14px;">⚠️</div>
+      <h2 style="font-size:18px;margin-bottom:10px;">Enlace no válido</h2>
+      <p style="font-size:14px;color:var(--muted);">Este enlace no contiene datos del ticket o es incorrecto.<br>Por favor usa el enlace del correo que recibiste.</p>
+    </div>`;
+}
+
+// ── Inicio ────────────────────────────────────────────────────
+var tktData = getTktData();
+if(tktData){ render(tktData); }
+else{ renderError(); }
+</script>
+</body>
+</html>
